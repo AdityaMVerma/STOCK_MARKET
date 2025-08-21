@@ -26,6 +26,10 @@ if st.button("Fetch Data"):
         if not data.empty:
             st.success(f"Data loaded for {ticker}")
 
+            # 🔹 Flatten MultiIndex columns if needed (important fix)
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = [col[0] for col in data.columns]
+
             # Show last few rows
             st.subheader(f"Stock Data for {ticker}")
             st.dataframe(data.tail())
@@ -66,21 +70,61 @@ if st.button("Fetch Data"):
             # Drop NaN rows so indicators plot correctly
             df = df.dropna()
 
-            # ---------------------- Plot Price Chart ----------------------
-            st.subheader("📊 Price & Indicators")
-            fig = go.Figure()
+            # ---------------------- Closing Price with SMA & EMA ----------------------
+            if "SMA" in indicators or "EMA" in indicators:
+                st.subheader("📊 Simple & Exponential Moving Averages (SMA & EMA)")
+                st.markdown(
+                    """
+                    The **Simple Moving Average (SMA)** smooths out price data by averaging a stock’s price 
+                    over a set period, helping to identify trends.  
 
-            # Closing price
-            fig.add_trace(go.Scatter(x=df.index, y=df["Close"], mode="lines", name="Close", line=dict(color="black")))
+                    The **Exponential Moving Average (EMA)** gives more weight to recent prices, 
+                    making it more responsive to new information compared to the SMA.  
+                    Traders often use these to confirm trend direction and spot potential reversals.
+                    """
+                )
 
-            if "SMA" in indicators and "SMA_20" in df:
-                fig.add_trace(go.Scatter(x=df.index, y=df["SMA_20"], mode="lines", name="SMA 20", line=dict(color="blue")))
+                fig_price = go.Figure()
 
-            if "EMA" in indicators and "EMA_20" in df:
-                fig.add_trace(go.Scatter(x=df.index, y=df["EMA_20"], mode="lines", name="EMA 20", line=dict(color="orange")))
+                # Always show Close
+                fig_price.add_trace(go.Scatter(
+                    x=df.index, y=df["Close"],
+                    mode="lines", name="Close",
+                    line=dict(color="blue")
+                ))
 
-            fig.update_layout(title=f"{ticker} Stock Price with Indicators", xaxis_title="Date", yaxis_title="Price")
-            st.plotly_chart(fig, use_container_width=True)
+                # Add SMA if selected
+                if "SMA" in indicators and "SMA_20" in df:
+                    fig_price.add_trace(go.Scatter(
+                        x=df.index, y=df["SMA_20"],
+                        mode="lines", name="SMA 20",
+                        line=dict(color="orange")
+                    ))
+
+                # Add EMA if selected
+                if "EMA" in indicators and "EMA_20" in df:
+                    fig_price.add_trace(go.Scatter(
+                        x=df.index, y=df["EMA_20"],
+                        mode="lines", name="EMA 20",
+                        line=dict(color="green")
+                    ))
+
+                # Layout: interactive legend
+                fig_price.update_layout(
+                    xaxis_title="Date",
+                    yaxis_title="Price",
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="center",
+                        x=0.5
+                    )
+                )
+
+                st.plotly_chart(fig_price, use_container_width=True)
+
+
 
             # ---------------------- MACD Plot ----------------------
             if "MACD" in indicators and "MACD" in df:
