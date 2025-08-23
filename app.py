@@ -3,18 +3,34 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import requests
+import os
+from dotenv import load_dotenv
+import plotly.express as px
 
 # Import RF model functions
 from Models.RF import train_random_forest, predict_random_forest
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
+load_dotenv()
+API_KEY = os.getenv("alpha_vantage_news_api")  # stored in .env
+
 st.title("📈 Stock Analysis App")
 
 # ====================== SIDEBAR: Navigation ======================
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Stock Data", "Random Forest Prediction"])
+page = st.sidebar.radio("Go to", ["Stock Data", "Random Forest Prediction", "Sentiment Analysis"])
 
+# ====================== HELPER: Fetch News & Sentiment ======================
+def get_news_sentiment(ticker: str, api_key: str, limit: int = 15):
+    """
+    Fetch news sentiment data from Alpha Vantage API.
+    """
+    url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={ticker}&apikey={api_key}&limit={limit}"
+    response = requests.get(url)
+    data = response.json()
+    return data.get("feed", [])
 # ====================== MAIN APP ======================
 if page == "Stock Data":
     st.header("📈 Stock Data Viewer")
@@ -254,4 +270,82 @@ elif page == "Random Forest Prediction":
         )
 
         st.plotly_chart(fig_future, use_container_width=True)
+    else:
+        st.error("Ticker Not Found/ Not enough historical data available")
 
+
+elif page == "Sentiment Analysis":
+    st.header("📰 Market News & Sentiment")
+    ticker_sent = st.text_input("Enter Stock Ticker for Sentiment Analysis", "AAPL")
+    st.markdown("""
+                    **ℹ️ Sentiment Score Interpretation**  
+                    - ≤ -0.35 → Bearish  
+                    - -0.35 to -0.15 → Somewhat Bearish  
+                    - -0.15 to 0.15 → Neutral  
+                    - 0.15 to 0.35 → Somewhat Bullish  
+                    - ≥ 0.35 → Bullish  
+                    """)
+
+    if st.button("Fetch Sentiment"):
+        if not API_KEY:
+            st.error("API key not found. Please set ALPHA_VANTAGE_API_KEY in your .env file.")
+        else:
+            with st.spinner("Fetching sentiment data..."):
+                # ✅ Fetch 50 articles
+                news_feed = get_news_sentiment(ticker_sent, API_KEY, limit=50)
+
+                if news_feed:
+                    sentiments = []
+
+                    # ✅ Show only first 15 articles
+                    for article in news_feed[:15]:
+                        st.markdown(f"### [{article['title']}]({article['url']})")
+                        if "banner_image" in article and article["banner_image"]:
+                            st.image(article["banner_image"], width=400)
+                        st.caption(f"Source: {article['source']} | Published: {article['time_published']}")
+                        st.write(article['summary'])
+
+                        # ✅ Show overall article sentiment
+                        st.write(f"**Overall Sentiment:** {article['overall_sentiment_label']} "
+                                 f"({article['overall_sentiment_score']:.2f})")
+
+                        # ✅ Extract ticker-specific sentiment
+                        ticker_sentiment = None
+                        for ts in article.get("ticker_sentiment", []):
+                            if ts["ticker"].upper() == ticker_sent.upper():
+                                ticker_sentiment = ts
+                                break
+
+                        if ticker_sentiment:
+                            st.write(
+                                f"**{ticker_sent} Sentiment:** {ticker_sentiment['ticker_sentiment_label']} "
+                                f"({float(ticker_sentiment['ticker_sentiment_score']):.2f})"
+                            )
+                            sentiments.append(ticker_sentiment["ticker_sentiment_label"])
+                        else:
+                            st.write(f"**{ticker_sent} Sentiment:** Not available in this article")
+
+                        st.divider()
+
+                    # ✅ Chart for ALL 50 articles (ticker-specific sentiment only)
+                    all_sentiments = []
+                    for article in news_feed:
+                        for ts in article.get("ticker_sentiment", []):
+                            if ts["ticker"].upper() == ticker_sent.upper():
+                                all_sentiments.append(ts["ticker_sentiment_label"])
+                                break
+
+                    if all_sentiments:
+                        sentiment_df = pd.DataFrame(all_sentiments, columns=["Sentiment"])
+                        fig = px.histogram(
+                            sentiment_df,
+                            x="Sentiment",
+                            title=f"{ticker_sent} Sentiment Distribution (All 50 Articles)",
+                            color="Sentiment"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.warning(f"No ticker-specific sentiment data found for {ticker_sent}.")
+
+                else:
+                    st.warning("No news data available at the moment.")
