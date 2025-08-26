@@ -1,6 +1,21 @@
-venv/
-.venv/
+# Python cache / build
 __pycache__/
 *.pyc
-.idea/
+*.pyo
+*.pyd
+
+# Databases (local only)
+*.db
+*.sqlite3
+
+# Virtual environments
+.venv/
+
+# Environment variables
 .env
+
+# IDE / OS files
+.idea/
+.vscode/
+.DS_Store
+
