@@ -13,13 +13,19 @@ from Models.RF import train_random_forest, predict_random_forest
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
-load_dotenv()
-API_KEY = os.getenv("alpha_vantage_news_api")  # stored in .env
+
 
 st.title("📈 Stock Analysis App")
 
 # ====================== SIDEBAR: Navigation ======================
 st.sidebar.title("Navigation")
+from pathlib import Path
+dotenv_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=dotenv_path)
+
+API_KEY = os.getenv("API_KEY")
+
+# Debug line - guaranteed to show
 page = st.sidebar.radio("Go to", ["Stock Data", "Random Forest Prediction", "Sentiment Analysis"])
 
 # ====================== HELPER: Fetch News & Sentiment ======================
@@ -288,7 +294,7 @@ elif page == "Sentiment Analysis":
 
     if st.button("Fetch Sentiment"):
         if not API_KEY:
-            st.error("API key not found. Please set ALPHA_VANTAGE_API_KEY in your .env file.")
+            st.error("API key not found. Please set API_KEY in your .env file.")
         else:
             with st.spinner("Fetching sentiment data..."):
                 # ✅ Fetch 50 articles
