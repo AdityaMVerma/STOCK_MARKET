@@ -31,8 +31,10 @@ STOCK_MARKET/
 
 1. Clone the repo
 
-``` git clone https://github.com/AdityaMVerma/stock-app.git
-cd stock-app ```
+``` 
+git clone https://github.com/AdityaMVerma/stock-app.git
+cd stock-app 
+```
 
 2. Create & activate virtual environment
 
